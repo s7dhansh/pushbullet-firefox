@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Smartphone, 
@@ -12,7 +11,6 @@ import {
   Trash2,
   Globe,
   Laptop,
-  User as UserIcon,
   ArrowLeft,
   PenSquare,
   AlertTriangle,
