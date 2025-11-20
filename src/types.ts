@@ -1,3 +1,4 @@
+
 export interface User {
   iden: string;
   email: string;
@@ -27,7 +28,7 @@ export interface Push {
   active: boolean;
   created: number;
   modified: number;
-  type: 'note' | 'link' | 'file' | 'mirror' | 'sms_changed';
+  type: 'note' | 'link' | 'file' | 'mirror' | 'sms_changed' | 'messaging_extension_reply';
   dismissed: boolean;
   direction: 'self' | 'outgoing' | 'incoming';
   sender_iden: string;
@@ -43,6 +44,34 @@ export interface Push {
   application_name?: string;
   notification_id?: string;
   package_name?: string;
+  icon?: string;
+  source_device_iden?: string;
+  data?: {
+    threads?: SmsThread[];
+    messages?: SmsMessage[];
+  };
+}
+
+export interface SmsThread {
+  id: string;
+  address: string;
+  recipients: { name: string; address: string; number: string; thumbnail_id?: number }[];
+  latest_message: string;
+  timestamp: number;
+}
+
+export interface SmsMessage {
+  id: string;
+  direction: '1' | '2'; // 1 = Received, 2 = Sent
+  body: string;
+  timestamp: number;
+  status: string;
+}
+
+export interface WebSocketMessage {
+  type: 'tickle' | 'push' | 'nop';
+  subtype?: 'push' | 'device';
+  push?: Push;
 }
 
 export enum Tab {

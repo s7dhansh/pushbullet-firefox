@@ -1,3 +1,6 @@
+
+import { Push } from './types';
+
 declare const chrome: any;
 
 let socket: WebSocket | null = null;
@@ -42,6 +45,9 @@ function connectWebSocket() {
       const data = JSON.parse(event.data);
       if (data.type === 'push' && data.push) {
         handlePush(data.push);
+      } else if (data.type === 'tickle') {
+          // We can optionally trigger data refresh here if we had persistent state, 
+          // but mostly the popup handles active data fetching.
       }
     } catch (e) {
       console.error('Error parsing WS message', e);
@@ -58,19 +64,23 @@ function connectWebSocket() {
   };
 }
 
-function handlePush(push: any) {
+function handlePush(push: Push) {
   if (push.type === 'mirror') {
+    // Mirroring notification (SMS, Apps, etc)
     chrome.notifications.create(push.notification_id || `mirror-${Date.now()}`, {
       type: 'basic',
-      iconUrl: push.icon ? `data:image/png;base64,${push.icon}` : 'https://www.pushbullet.com/img/header-logo.png',
+      iconUrl: push.icon ? `data:image/png;base64,${push.icon}` : 'icon.svg',
       title: push.title || push.application_name || 'Notification',
       message: push.body || '',
-      contextMessage: push.application_name
+      contextMessage: push.application_name,
+      // Firefox specific: requireInteraction can keep notification on screen longer
+      priority: 2
     });
   } else if (push.type === 'link' || push.type === 'note') {
+      // Standard Push
       chrome.notifications.create(`push-${push.iden}`, {
           type: 'basic',
-          iconUrl: 'https://www.pushbullet.com/img/header-logo.png',
+          iconUrl: 'icon.svg',
           title: push.title || 'New Push',
           message: push.body || (push.url ? 'Link received' : ''),
       });

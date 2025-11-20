@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Smartphone, 
   MessageSquare, 
@@ -10,9 +11,14 @@ import {
   FileText, 
   Trash2,
   Globe,
-  Laptop
+  Laptop,
+  User as UserIcon,
+  ArrowLeft,
+  PenSquare,
+  AlertTriangle,
+  X
 } from 'lucide-react';
-import { Tab, Device, Push, User } from '../types';
+import { Tab, Device, Push, User, WebSocketMessage, SmsThread, SmsMessage } from '../types';
 import * as service from '../services/pushbulletService';
 
 declare const chrome: any;
@@ -29,11 +35,18 @@ const Dashboard: React.FC<DashboardProps> = ({ apiKey, user, onLogout }) => {
   const [pushes, setPushes] = useState<Push[]>([]);
   const [loading, setLoading] = useState(false);
   const [wsConnected, setWsConnected] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
   
-  // SMS State
-  const [smsPhone, setSmsPhone] = useState('');
-  const [smsMessage, setSmsMessage] = useState('');
+  // SMS Client State
   const [selectedDevice, setSelectedDevice] = useState<string>('');
+  const [threads, setThreads] = useState<SmsThread[]>([]);
+  const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<SmsMessage[]>([]);
+  const [smsDraft, setSmsDraft] = useState('');
+  const [loadingThreads, setLoadingThreads] = useState(false);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [isComposing, setIsComposing] = useState(false);
+  const [newSmsRecipient, setNewSmsRecipient] = useState('');
 
   // New Push State
   const [pushTitle, setPushTitle] = useState('');
@@ -41,14 +54,13 @@ const Dashboard: React.FC<DashboardProps> = ({ apiKey, user, onLogout }) => {
   const [pushUrl, setPushUrl] = useState('');
   const [pushType, setPushType] = useState<'note' | 'link'>('note');
 
-  // Notification Log (Mirroring)
-  const [notifications, setNotifications] = useState<any[]>([]);
-
   // Check if running as extension
   const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id;
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const loadData = async () => {
     setLoading(true);
+    setApiError(null);
     try {
       const [d, p] = await Promise.all([
         service.getDevices(apiKey),
@@ -57,22 +69,56 @@ const Dashboard: React.FC<DashboardProps> = ({ apiKey, user, onLogout }) => {
       setDevices(d);
       setPushes(p);
       
-      // Auto-select first phone for SMS
+      // Auto-select first phone for SMS if not set
       const phone = d.find(device => device.has_sms);
       if (phone && !selectedDevice) {
         setSelectedDevice(phone.iden);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
+      if (error.message?.includes('Failed to fetch')) {
+          setApiError("Connection failed. If you are in a web preview, this is likely due to CORS blocking the Pushbullet API. Please install the extension to test fully.");
+      } else {
+          setApiError("Failed to load data. Please check your network.");
+      }
     } finally {
       setLoading(false);
     }
   };
 
+  // Scroll to bottom of chat
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages]);
+
+  // Fetch threads when device changes or tab changes to SMS
+  useEffect(() => {
+    if (activeTab === Tab.SMS && selectedDevice) {
+        setLoadingThreads(true);
+        service.fetchSMSThreads(apiKey, selectedDevice).catch(err => {
+            console.error(err);
+            setLoadingThreads(false);
+        });
+    }
+  }, [activeTab, selectedDevice, apiKey]);
+
+  // Fetch messages when thread selected
+  useEffect(() => {
+    if (activeTab === Tab.SMS && selectedDevice && selectedThreadId) {
+        setLoadingMessages(true);
+        service.fetchThreadMessages(apiKey, selectedDevice, selectedThreadId).catch(err => {
+             console.error(err);
+             setLoadingMessages(false);
+        });
+    }
+  }, [activeTab, selectedDevice, selectedThreadId, apiKey]);
+
   useEffect(() => {
     loadData();
     
-    const ws = service.createWebSocket(apiKey, (data) => {
+    const ws = service.createWebSocket(apiKey, (data: WebSocketMessage) => {
       if (data.type === 'tickle') {
         if (data.subtype === 'push') {
             service.getPushes(apiKey).then(setPushes);
@@ -82,9 +128,29 @@ const Dashboard: React.FC<DashboardProps> = ({ apiKey, user, onLogout }) => {
       } else if (data.type === 'push' && data.push) {
         const pushData = data.push;
         
+        // Handle SMS Thread List
+        if (pushData.type === 'messaging_extension_reply' && pushData.data?.threads) {
+            setThreads(pushData.data.threads);
+            setLoadingThreads(false);
+        }
+        
+        // Handle Messages List
+        if (pushData.type === 'messaging_extension_reply' && pushData.data?.messages) {
+             // Pushbullet returns messages in reverse chrono usually
+             setMessages(pushData.data.messages.reverse());
+             setLoadingMessages(false);
+        }
+
+        // Handle Mirroring & Incoming SMS Notification
         if (pushData.type === 'mirror' || pushData.type === 'sms_changed') {
-           setNotifications(prev => [pushData, ...prev]);
-           
+           // If we are in the SMS tab and viewing the relevant thread, update?
+           if (pushData.type === 'sms_changed' && selectedDevice) {
+             service.fetchSMSThreads(apiKey, selectedDevice);
+             if (selectedThreadId) {
+                 service.fetchThreadMessages(apiKey, selectedDevice, selectedThreadId);
+             }
+           }
+
            if (!isExtension && Notification.permission === 'granted' && pushData.type === 'mirror') {
              new Notification(pushData.title || 'New Notification', {
                body: pushData.body,
@@ -98,24 +164,63 @@ const Dashboard: React.FC<DashboardProps> = ({ apiKey, user, onLogout }) => {
     ws.onopen = () => setWsConnected(true);
     ws.onclose = () => setWsConnected(false);
 
-    if (!isExtension && Notification.permission === 'default') {
-      Notification.requestPermission();
-    }
-
     return () => {
       ws.close();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiKey]);
+
+  const requestNotificationPermission = () => {
+      if (!isExtension && Notification.permission === 'default') {
+        Notification.requestPermission();
+      }
+  }
 
   const handleSendSMS = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedDevice || !smsPhone || !smsMessage) return;
+    if (!selectedDevice || (!selectedThreadId && !newSmsRecipient) || !smsDraft.trim()) return;
+
+    const target = selectedThreadId || newSmsRecipient;
+
+    // Optimistic update if in a thread
+    const tempMsg: SmsMessage = {
+        id: Date.now().toString(),
+        direction: '2',
+        body: smsDraft,
+        timestamp: Date.now() / 1000,
+        status: 'sending'
+    };
+
+    if (selectedThreadId) {
+        setMessages(prev => [...prev, tempMsg]);
+    }
+
+    const msgToSend = smsDraft;
+    setSmsDraft('');
+    
+    // If composing new, clear state to show thread list or loading
+    if (isComposing) {
+        setIsComposing(false);
+        setNewSmsRecipient('');
+        setLoadingThreads(true); // Expect a refresh
+    }
 
     try {
-      await service.sendSMS(apiKey, selectedDevice, smsPhone, smsMessage);
-      setSmsMessage('');
+      await service.sendSMS(apiKey, selectedDevice, target, msgToSend);
+      // Trigger a refresh after a delay to get the real message status
+      setTimeout(() => {
+          if (selectedThreadId) {
+             service.fetchThreadMessages(apiKey, selectedDevice, selectedThreadId);
+          } else {
+             // If it was a new thread, refresh thread list
+             service.fetchSMSThreads(apiKey, selectedDevice);
+          }
+      }, 2000);
     } catch (err) {
-      alert('Failed to send SMS');
+      alert('Failed to send SMS. Check connection.');
+      if (selectedThreadId) {
+          setMessages(prev => prev.filter(m => m.id !== tempMsg.id));
+      }
     }
   };
 
@@ -152,13 +257,13 @@ const Dashboard: React.FC<DashboardProps> = ({ apiKey, user, onLogout }) => {
   const renderSidebar = () => (
     <div className="w-16 md:w-64 bg-white border-r border-slate-200 flex flex-col h-full flex-shrink-0 transition-all">
       <div className="p-4 border-b border-slate-100 flex items-center justify-center md:justify-start space-x-3">
-        <img src={user.image_url || "https://picsum.photos/200"} alt="User" className="w-8 h-8 rounded-full" />
+        <img src={user.image_url || "https://picsum.photos/200"} alt="User" className="w-8 h-8 rounded-full object-cover" />
         <div className="hidden md:block overflow-hidden">
             <h2 className="font-semibold text-slate-800 truncate text-sm">{user.name}</h2>
-            <div className="flex items-center space-x-1">
+            <button onClick={requestNotificationPermission} className="flex items-center space-x-1 hover:opacity-75 transition-opacity">
                 <div className={`w-2 h-2 rounded-full ${wsConnected ? 'bg-green-500' : 'bg-red-400'}`} />
                 <span className="text-xs text-slate-500">{wsConnected ? 'Live' : 'Offline'}</span>
-            </div>
+            </button>
         </div>
       </div>
       <nav className="flex-1 p-2 space-y-1">
@@ -180,7 +285,7 @@ const Dashboard: React.FC<DashboardProps> = ({ apiKey, user, onLogout }) => {
         </button>
         <button 
           onClick={() => setActiveTab(Tab.SMS)}
-          title="SMS & Mirroring"
+          title="SMS"
           className={`w-full flex items-center justify-center md:justify-start md:space-x-3 px-2 md:px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === Tab.SMS ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-50'}`}
         >
           <MessageSquare className="w-5 h-5" />
@@ -316,82 +421,206 @@ const Dashboard: React.FC<DashboardProps> = ({ apiKey, user, onLogout }) => {
     </div>
   );
 
-  const renderSMS = () => (
-    <div className="flex flex-col h-full">
-      {/* Config Header */}
-      <div className="p-4 border-b border-slate-200 bg-white">
-        <select 
-            value={selectedDevice} 
-            onChange={(e) => setSelectedDevice(e.target.value)}
-            className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-slate-50"
-        >
-            <option value="" disabled>Select Source Device</option>
-            {devices.filter(d => d.has_sms).map(d => (
-              <option key={d.iden} value={d.iden}>{d.nickname || d.model}</option>
-            ))}
-        </select>
-      </div>
-
-      {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50">
-        {notifications.length === 0 && (
-            <div className="text-center py-8 text-slate-400 text-xs">
-              No recent notifications mirrored.
-            </div>
-        )}
-        {notifications.map((notif, idx) => (
-            <div key={idx} className="bg-white p-3 rounded-lg border border-slate-200 text-sm shadow-sm">
-              <div className="flex items-center mb-1">
-                  {notif.icon ? (
-                      <img src={`data:image/png;base64,${notif.icon}`} alt="icon" className="w-4 h-4 mr-2" />
-                  ) : <Bell className="w-3 h-3 mr-2 text-slate-400" />}
-                  <span className="font-semibold text-slate-700 text-xs">{notif.application_name || notif.title}</span>
-              </div>
-              <p className="text-slate-600 text-xs">{notif.body}</p>
-            </div>
-        ))}
-      </div>
-
-      {/* Composer */}
-      <div className="p-4 bg-white border-t border-slate-200">
-        <form onSubmit={handleSendSMS} className="space-y-3">
-            <input 
-                type="tel"
-                required
-                value={smsPhone}
-                onChange={(e) => setSmsPhone(e.target.value)}
-                placeholder="To: +1 234 567 8900"
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500"
-            />
-            <div className="flex space-x-2">
-                <input
-                    type="text"
-                    required
-                    value={smsMessage}
-                    onChange={(e) => setSmsMessage(e.target.value)}
-                    placeholder="SMS Message..."
-                    className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500"
-                />
-                <button 
-                    type="submit" 
-                    disabled={!selectedDevice}
-                    className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white px-4 rounded-lg transition-colors flex items-center justify-center"
+  // New SMS Client UI
+  const renderSMS = () => {
+      if (!selectedDevice) {
+          return (
+            <div className="flex flex-col items-center justify-center h-full text-slate-400">
+                <Smartphone className="w-12 h-12 mb-4 opacity-20" />
+                <p>Please select a phone to view SMS</p>
+                <select 
+                    className="mt-4 p-2 border rounded-lg"
+                    onChange={(e) => setSelectedDevice(e.target.value)}
+                    defaultValue=""
                 >
-                    <Send className="w-4 h-4" />
+                    <option value="" disabled>Select Device</option>
+                    {devices.filter(d => d.has_sms).map(d => (
+                        <option key={d.iden} value={d.iden}>{d.nickname || d.model}</option>
+                    ))}
+                </select>
+            </div>
+          );
+      }
+
+      // New Message View
+      if (isComposing) {
+          return (
+              <div className="flex flex-col h-full bg-slate-50">
+                   <div className="flex items-center p-3 bg-white border-b border-slate-200 shadow-sm">
+                      <button onClick={() => setIsComposing(false)} className="mr-3 p-1 hover:bg-slate-100 rounded-full">
+                          <ArrowLeft className="w-5 h-5 text-slate-600" />
+                      </button>
+                      <h3 className="font-semibold text-slate-800">New Message</h3>
+                  </div>
+                  <div className="p-4">
+                       <label className="block text-xs font-medium text-slate-500 mb-1">Recipient</label>
+                       <input 
+                          type="tel" 
+                          value={newSmsRecipient}
+                          onChange={(e) => setNewSmsRecipient(e.target.value)}
+                          placeholder="+1 234 567 8900"
+                          className="w-full p-3 border border-slate-300 rounded-lg mb-4 focus:ring-2 focus:ring-emerald-500"
+                       />
+                       <label className="block text-xs font-medium text-slate-500 mb-1">Message</label>
+                       <textarea 
+                          value={smsDraft}
+                          onChange={(e) => setSmsDraft(e.target.value)}
+                          placeholder="Type your message..."
+                          rows={4}
+                          className="w-full p-3 border border-slate-300 rounded-lg mb-4 focus:ring-2 focus:ring-emerald-500"
+                       />
+                       <button 
+                        onClick={handleSendSMS}
+                        disabled={!newSmsRecipient || !smsDraft}
+                        className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white p-3 rounded-lg font-medium flex items-center justify-center"
+                       >
+                           <Send className="w-4 h-4 mr-2" /> Send
+                       </button>
+                  </div>
+              </div>
+          )
+      }
+
+      // Message Thread View
+      if (selectedThreadId) {
+          const currentThread = threads.find(t => t.id === selectedThreadId);
+          return (
+              <div className="flex flex-col h-full bg-slate-50">
+                  <div className="flex items-center p-3 bg-white border-b border-slate-200 shadow-sm">
+                      <button onClick={() => setSelectedThreadId(null)} className="mr-3 p-1 hover:bg-slate-100 rounded-full">
+                          <ArrowLeft className="w-5 h-5 text-slate-600" />
+                      </button>
+                      <div className="flex-1 overflow-hidden">
+                          <h3 className="font-semibold text-slate-800 truncate">
+                              {currentThread?.recipients[0]?.name || currentThread?.recipients[0]?.address || 'Unknown'}
+                          </h3>
+                          <p className="text-xs text-slate-500 truncate">{currentThread?.recipients[0]?.number}</p>
+                      </div>
+                  </div>
+                  
+                  <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                      {loadingMessages ? (
+                          <div className="flex justify-center py-8"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-600"></div></div>
+                      ) : messages.length === 0 ? (
+                          <div className="text-center text-slate-400 text-sm py-10">No messages found</div>
+                      ) : (
+                          messages.map((msg, idx) => (
+                              <div key={msg.id || idx} className={`flex ${msg.direction === '2' ? 'justify-end' : 'justify-start'}`}>
+                                  <div className={`max-w-[75%] px-4 py-2 rounded-xl text-sm ${
+                                      msg.direction === '2' 
+                                      ? 'bg-emerald-600 text-white rounded-tr-none' 
+                                      : 'bg-white border border-slate-200 text-slate-800 rounded-tl-none shadow-sm'
+                                  }`}>
+                                      {msg.body}
+                                  </div>
+                              </div>
+                          ))
+                      )}
+                      <div ref={messagesEndRef} />
+                  </div>
+
+                  <div className="p-3 bg-white border-t border-slate-200">
+                      <form onSubmit={handleSendSMS} className="flex items-center space-x-2">
+                          <input 
+                            type="text" 
+                            value={smsDraft}
+                            onChange={(e) => setSmsDraft(e.target.value)}
+                            placeholder="Text message"
+                            className="flex-1 px-4 py-2 border border-slate-300 rounded-full text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
+                          />
+                          <button type="submit" className="p-2 bg-emerald-600 text-white rounded-full hover:bg-emerald-700 transition-colors">
+                              <Send className="w-5 h-5" />
+                          </button>
+                      </form>
+                  </div>
+              </div>
+          );
+      }
+
+      // Thread List View
+      return (
+        <div className="flex flex-col h-full relative">
+            {/* Header */}
+            <div className="p-4 border-b border-slate-200 bg-white flex justify-between items-center shadow-sm z-10">
+                <select 
+                    value={selectedDevice} 
+                    onChange={(e) => setSelectedDevice(e.target.value)}
+                    className="max-w-[200px] p-1.5 border border-slate-300 rounded-lg text-sm bg-slate-50 outline-none"
+                >
+                    {devices.filter(d => d.has_sms).map(d => (
+                    <option key={d.iden} value={d.iden}>{d.nickname || d.model}</option>
+                    ))}
+                </select>
+                <button onClick={() => service.fetchSMSThreads(apiKey, selectedDevice)} className="p-2 text-slate-500 hover:text-emerald-600 rounded-full">
+                    <RefreshCw className={`w-4 h-4 ${loadingThreads ? 'animate-spin' : ''}`} />
                 </button>
             </div>
-        </form>
-      </div>
-    </div>
-  );
+            
+            {/* List */}
+            <div className="flex-1 overflow-y-auto">
+                {loadingThreads && threads.length === 0 ? (
+                    <div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div></div>
+                ) : threads.length === 0 ? (
+                    <div className="text-center py-10 text-slate-400 text-sm px-6">
+                        No SMS threads found. Make sure your Android device is on.
+                    </div>
+                ) : (
+                    threads.map(thread => {
+                        const recipient = thread.recipients && thread.recipients.length > 0 ? thread.recipients[0] : { name: 'Unknown', address: 'Unknown', number: ''};
+                        return (
+                            <button 
+                                key={thread.id} 
+                                onClick={() => setSelectedThreadId(thread.id)}
+                                className="w-full p-4 border-b border-slate-100 hover:bg-slate-50 flex items-start text-left transition-colors"
+                            >
+                                <div className="w-10 h-10 bg-slate-200 rounded-full flex items-center justify-center shrink-0 mr-3 text-slate-500 font-semibold">
+                                    {recipient.name ? recipient.name[0].toUpperCase() : '#'}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex justify-between items-baseline mb-1">
+                                        <h4 className="font-semibold text-slate-800 text-sm truncate pr-2">
+                                            {recipient.name || recipient.address}
+                                        </h4>
+                                        {thread.timestamp && (
+                                            <span className="text-[10px] text-slate-400 shrink-0">
+                                                {new Date(thread.timestamp * 1000).toLocaleDateString()}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <p className="text-xs text-slate-500 truncate">{thread.latest_message}</p>
+                                </div>
+                            </button>
+                        );
+                    })
+                )}
+            </div>
+
+             {/* Floating Action Button */}
+             <button 
+                onClick={() => setIsComposing(true)}
+                className="absolute bottom-6 right-6 w-12 h-12 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full shadow-lg flex items-center justify-center transition-all hover:scale-105"
+            >
+                <PenSquare className="w-6 h-6" />
+            </button>
+        </div>
+      );
+  };
 
   return (
-    <div className="flex h-screen bg-slate-50 overflow-hidden">
+    <div className="flex h-screen bg-slate-50 overflow-hidden relative">
+      {/* Error Banner */}
+      {apiError && (
+          <div className="absolute top-0 left-0 right-0 z-50 bg-red-600 text-white px-4 py-2 text-xs flex items-center justify-between">
+              <span className="flex items-center"><AlertTriangle className="w-4 h-4 mr-2" /> {apiError}</span>
+              <button onClick={() => setApiError(null)}><X className="w-4 h-4" /></button>
+          </div>
+      )}
+
       {renderSidebar()}
-      <main className="flex-1 overflow-y-auto h-full relative no-scrollbar">
-        {activeTab === Tab.DEVICES && renderDevices()}
-        {activeTab === Tab.PUSHES && renderPushes()}
-        {activeTab === Tab.SMS && renderSMS()}
+      <main className="flex-1 overflow-hidden h-full relative bg-white md:bg-slate-50">
+        {activeTab === Tab.DEVICES && <div className="h-full overflow-y-auto no-scrollbar">{renderDevices()}</div>}
+        {activeTab === Tab.PUSHES && <div className="h-full overflow-y-auto no-scrollbar">{renderPushes()}</div>}
+        {activeTab === Tab.SMS && <div className="h-full overflow-hidden">{renderSMS()}</div>}
       </main>
     </div>
   );

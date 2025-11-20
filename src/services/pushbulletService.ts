@@ -1,9 +1,9 @@
-import { Device, Push, User } from '../types';
+
+import { Device, Push, User, WebSocketMessage } from '../types';
 
 const API_BASE = 'https://api.pushbullet.com/v2';
 
 const getHeaders = (apiKey: string) => ({
-  // Basic Auth with empty password is more robust for browser extensions to avoid header stripping
   'Authorization': 'Basic ' + btoa(apiKey + ':'),
   'Content-Type': 'application/json',
 });
@@ -47,6 +47,16 @@ export const sendPush = async (
   return res.json();
 };
 
+// Generic ephemeral sender
+const sendEphemeral = async (apiKey: string, payload: any) => {
+  const res = await fetch(`${API_BASE}/ephemerals`, {
+    method: 'POST',
+    headers: getHeaders(apiKey),
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error('Failed to send ephemeral');
+};
+
 export const sendSMS = async (
   apiKey: string,
   sourceDeviceIden: string,
@@ -64,14 +74,32 @@ export const sendSMS = async (
     },
     type: 'push',
   };
-  
-  const res = await fetch(`${API_BASE}/ephemerals`, {
-    method: 'POST',
-    headers: getHeaders(apiKey),
-    body: JSON.stringify(payload),
-  });
-  
-  if (!res.ok) throw new Error('Failed to send SMS');
+  await sendEphemeral(apiKey, payload);
+};
+
+export const fetchSMSThreads = async (apiKey: string, deviceIden: string): Promise<void> => {
+  const payload = {
+    type: 'push',
+    push: {
+      type: 'messaging_extension_list_threads',
+      package_name: 'com.pushbullet.android',
+      target_device_iden: deviceIden
+    }
+  };
+  await sendEphemeral(apiKey, payload);
+};
+
+export const fetchThreadMessages = async (apiKey: string, deviceIden: string, threadId: string): Promise<void> => {
+  const payload = {
+    type: 'push',
+    push: {
+      type: 'messaging_extension_list_messages',
+      package_name: 'com.pushbullet.android',
+      target_device_iden: deviceIden,
+      conversation_iden: threadId
+    }
+  };
+  await sendEphemeral(apiKey, payload);
 };
 
 export const deletePush = async (apiKey: string, pushIden: string): Promise<void> => {
@@ -82,7 +110,7 @@ export const deletePush = async (apiKey: string, pushIden: string): Promise<void
   if (!res.ok) throw new Error('Failed to delete push');
 };
 
-export const createWebSocket = (apiKey: string, onMessage: (data: any) => void) => {
+export const createWebSocket = (apiKey: string, onMessage: (data: WebSocketMessage) => void) => {
   const ws = new WebSocket(`wss://stream.pushbullet.com/websocket/${apiKey}`);
   
   ws.onopen = () => {

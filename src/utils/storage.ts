@@ -3,7 +3,7 @@ declare const chrome: any;
 export const getStorage = (key: string): Promise<string | null> => {
   return new Promise((resolve) => {
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-      chrome.storage.local.get([key], (result: any) => {
+      chrome.storage.local.get([key], (result: { [key: string]: any }) => {
         resolve(result[key] || null);
       });
     } else {
