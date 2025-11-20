@@ -1,0 +1,5 @@
+{
+  "name": "SMS Push",
+  "description": "A feature-rich Pushbullet client designed for SMS mirroring, device management, and push history. Connects directly to the Pushbullet API and WebSocket stream.",
+  "requestFramePermissions": []
+}
