@@ -8,8 +8,10 @@ const __dirname = dirname(__filename);
 
 export default defineConfig({
   plugins: [react()],
-  base: './',
+  // Use relative base for extension compatibility
+  base: './', 
   build: {
+    outDir: 'dist',
     rollupOptions: {
       input: {
         popup: resolve(__dirname, 'index.html'),
