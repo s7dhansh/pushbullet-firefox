@@ -7,151 +7,97 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-      html {
-        height: 100%;
-        width: 100%;
-        background-color: #e2e8f0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-      
-      body {
+      /* Critical styles to ensure visibility even if Tailwind fails */
+      html, body {
         margin: 0;
         padding: 0;
         width: 450px;
         height: 600px;
         background-color: #f8fafc;
+        font-family: 'Inter', sans-serif;
         overflow: hidden;
-        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-        display: flex;
-        flex-direction: column;
-        position: relative;
       }
 
       #root {
-        flex: 1;
         width: 100%;
         height: 100%;
-        overflow: hidden;
         display: flex;
         flex-direction: column;
       }
 
-      /* Debug Console Styles */
-      #debug-console {
-        display: none; /* Hidden by default, shown on error */
-        position: absolute;
-        bottom: 0;
+      #error-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
         left: 0;
-        right: 0;
-        height: 200px;
-        background: rgba(0,0,0,0.9);
-        color: #0f0;
-        font-family: monospace;
-        font-size: 11px;
-        padding: 10px;
-        overflow-y: auto;
+        width: 100%;
+        height: 100%;
+        background: #fff;
         z-index: 9999;
-        border-top: 2px solid #333;
+        padding: 20px;
+        box-sizing: border-box;
+        overflow: auto;
+        color: #ef4444;
       }
-      
-      .log-error { color: #ff5555; }
-      .log-warn { color: #ffb86c; }
-      .log-info { color: #8be9fd; }
-
-      /* Scrollbar styling */
-      ::-webkit-scrollbar { width: 6px; }
-      ::-webkit-scrollbar-track { background: #f1f5f9; }
-      ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
-      .no-scrollbar::-webkit-scrollbar { display: none; }
-      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
+    <script>
+      // Immediate global error handler
+      window.onerror = function(msg, url, line, col, error) {
+        var overlay = document.getElementById('error-overlay');
+        if (overlay) {
+          overlay.style.display = 'block';
+          overlay.innerHTML += '<div style="margin-bottom:10px; border-bottom:1px solid #eee; padding-bottom:10px;">' +
+            '<strong>Global Error:</strong> ' + msg + '<br>' +
+            '<small>' + (url || 'unknown script') + ':' + line + '</small>' +
+            '</div>';
+        }
+        // Also log to console for devtools
+        console.error('Global Error caught:', msg, error);
+        return false; 
+      };
 
-    <!-- Critical: Import Map for Web Preview -->
-    <script type="importmap">
+      window.addEventListener('unhandledrejection', function(event) {
+        var overlay = document.getElementById('error-overlay');
+        if (overlay) {
+          overlay.style.display = 'block';
+          overlay.innerHTML += '<div style="margin-bottom:10px; border-bottom:1px solid #eee; padding-bottom:10px;">' +
+            '<strong>Unhandled Promise:</strong> ' + (event.reason ? event.reason.message : event.reason) +
+            '</div>';
+        }
+        console.error('Unhandled Rejection:', event.reason);
+      });
+    </script>
+<script type="importmap">
 {
   "imports": {
-    "react": "https://esm.sh/react@18.2.0",
-    "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
-    "lucide-react": "https://esm.sh/lucide-react@0.294.0",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0",
     "vite": "https://aistudiocdn.com/vite@^7.2.2",
     "path": "https://aistudiocdn.com/path@^0.12.7",
-    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1",
-    "url": "https://aistudiocdn.com/url@^0.11.4",
     "react/": "https://aistudiocdn.com/react@^19.2.0/",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/"
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1",
+    "url": "https://aistudiocdn.com/url@^0.11.4"
   }
 }
 </script>
-
-    <script>
-      // On-screen console logger
-      (function() {
-        const oldLog = console.log;
-        const oldError = console.error;
-        const oldWarn = console.warn;
-        
-        function appendLog(msg, type) {
-            const debugDiv = document.getElementById('debug-console');
-            if (!debugDiv) return;
-            
-            // Show console if it's an error or we are stuck loading
-            if (type === 'error') debugDiv.style.display = 'block';
-            
-            const line = document.createElement('div');
-            line.className = 'log-' + type;
-            line.textContent = `[${type.toUpperCase()}] ${msg}`;
-            debugDiv.appendChild(line);
-            debugDiv.scrollTop = debugDiv.scrollHeight;
-        }
-
-        console.log = function(...args) {
-            oldLog.apply(console, args);
-            appendLog(args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' '), 'info');
-        };
-
-        console.error = function(...args) {
-            oldError.apply(console, args);
-            appendLog(args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' '), 'error');
-        };
-
-        console.warn = function(...args) {
-            oldWarn.apply(console, args);
-            appendLog(args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' '), 'warn');
-        };
-
-        window.onerror = function(msg, url, line, col, error) {
-            console.error(msg, error);
-            const root = document.getElementById('root');
-            // If root is empty or just showing loading, replace with error
-            if (root && root.innerText.includes('Loading')) {
-               root.innerHTML = `
-                 <div style="padding:20px; color:#dc2626; font-family:sans-serif; text-align:center;">
-                   <h3 style="margin-bottom:10px;">Failed to Load</h3>
-                   <p style="font-size:12px; background:#fee2e2; padding:10px; border-radius:8px;">${msg}</p>
-                 </div>
-               `;
-            }
-        };
-      })();
-    </script>
 </head>
   <body>
-    <div id="root">
-        <div style="height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #64748b; font-family: sans-serif;">
-            <div style="width: 32px; height: 32px; border: 3px solid #cbd5e1; border-top-color: #10b981; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 16px;"></div>
-            <span style="font-size: 14px; font-weight: 500;">Loading BulletBase...</span>
-            <button onclick="document.getElementById('debug-console').style.display = 'block'" style="margin-top: 20px; font-size: 10px; text-decoration: underline; color: #94a3b8; border: none; background: none; cursor: pointer;">Show Logs</button>
-        </div>
+    <div id="error-overlay">
+      <h3 style="color: #b91c1c; margin-top: 0;">Startup Errors</h3>
     </div>
     
-    <!-- Debug Console Output -->
-    <div id="debug-console"></div>
+    <div id="root">
+        <div style="height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #64748b;">
+            <div style="width: 32px; height: 32px; border: 3px solid #e2e8f0; border-top-color: #10b981; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 16px;"></div>
+            <span>Initializing...</span>
+        </div>
+    </div>
 
     <style>
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
+    
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
