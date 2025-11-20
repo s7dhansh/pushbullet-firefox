@@ -141,7 +141,8 @@ const Dashboard: React.FC<DashboardProps> = ({ apiKey, user, onLogout }) => {
         {activeTab === Tab.SMS && (
           <div className="h-full overflow-hidden">
             <SmsClient 
-              apiKey={apiKey} 
+              apiKey={apiKey}
+              user={user} 
               devices={devices}
               wsPush={wsPush}
             />

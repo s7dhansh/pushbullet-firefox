@@ -1,10 +1,9 @@
-
 import { Device, Push, User, WebSocketMessage } from '../types';
 
 const API_BASE = 'https://api.pushbullet.com/v2';
 
 const getHeaders = (apiKey: string) => ({
-  'Authorization': 'Basic ' + btoa(apiKey + ':'),
+  'Access-Token': apiKey,
   'Content-Type': 'application/json',
 });
 
@@ -59,6 +58,7 @@ const sendEphemeral = async (apiKey: string, payload: any) => {
 
 export const sendSMS = async (
   apiKey: string,
+  userIden: string,
   sourceDeviceIden: string,
   phoneNumber: string,
   message: string
@@ -67,7 +67,7 @@ export const sendSMS = async (
     push: {
       type: 'messaging_extension_reply',
       package_name: 'com.pushbullet.android',
-      source_user_iden: 'target_user_iden_placeholder',
+      source_user_iden: userIden,
       target_device_iden: sourceDeviceIden,
       conversation_iden: phoneNumber,
       message: message,
@@ -77,24 +77,26 @@ export const sendSMS = async (
   await sendEphemeral(apiKey, payload);
 };
 
-export const fetchSMSThreads = async (apiKey: string, deviceIden: string): Promise<void> => {
+export const fetchSMSThreads = async (apiKey: string, userIden: string, deviceIden: string): Promise<void> => {
   const payload = {
     type: 'push',
     push: {
       type: 'messaging_extension_list_threads',
       package_name: 'com.pushbullet.android',
+      source_user_iden: userIden,
       target_device_iden: deviceIden
     }
   };
   await sendEphemeral(apiKey, payload);
 };
 
-export const fetchThreadMessages = async (apiKey: string, deviceIden: string, threadId: string): Promise<void> => {
+export const fetchThreadMessages = async (apiKey: string, userIden: string, deviceIden: string, threadId: string): Promise<void> => {
   const payload = {
     type: 'push',
     push: {
       type: 'messaging_extension_list_messages',
       package_name: 'com.pushbullet.android',
+      source_user_iden: userIden,
       target_device_iden: deviceIden,
       conversation_iden: threadId
     }
@@ -117,10 +119,13 @@ export const createWebSocket = (apiKey: string, onMessage: (data: WebSocketMessa
     console.log('Pushbullet Stream Connected');
   };
 
-  ws.onmessage = (event) => {
+  ws.onmessage = (event: MessageEvent) => {
     try {
-      const data = JSON.parse(event.data);
-      onMessage(data);
+      const rawData = event.data;
+      if (typeof rawData === 'string') {
+          const data = JSON.parse(rawData);
+          onMessage(data);
+      }
     } catch (e) {
       console.error('Error parsing WS message', e);
     }

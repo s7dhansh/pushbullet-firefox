@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ShieldCheck, Key } from 'lucide-react';
 
 interface LoginProps {
@@ -8,6 +8,14 @@ interface LoginProps {
 
 const Login: React.FC<LoginProps> = ({ onLogin, error }) => {
   const [key, setKey] = useState('');
+
+  useEffect(() => {
+    // Auto-fill from env if available (for dev/preview)
+    const envKey = import.meta.env.VITE_PB_API_KEY;
+    if (envKey) {
+      setKey(envKey);
+    }
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

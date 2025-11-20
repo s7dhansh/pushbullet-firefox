@@ -4,29 +4,48 @@ import {
   Send, 
   RefreshCw, 
   ArrowLeft,
-  PenSquare
+  PenSquare,
+  AlertCircle
 } from 'lucide-react';
-import { Device, SmsThread, SmsMessage, Push } from '../types';
+import { Device, SmsThread, SmsMessage, Push, User } from '../types';
 import * as service from '../services/pushbulletService';
 
 interface SmsClientProps {
   apiKey: string;
+  user: User;
   devices: Device[];
-  wsPush: Push | null; // Receives the latest relevant push from WS
+  wsPush: Push | null;
 }
 
-const SmsClient: React.FC<SmsClientProps> = ({ apiKey, devices, wsPush }) => {
+const SmsClient: React.FC<SmsClientProps> = ({ apiKey, user, devices, wsPush }) => {
   const [selectedDevice, setSelectedDevice] = useState<string>('');
   const [threads, setThreads] = useState<SmsThread[]>([]);
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
   const [messages, setMessages] = useState<SmsMessage[]>([]);
   const [smsDraft, setSmsDraft] = useState('');
+  
+  // Loading States
   const [loadingThreads, setLoadingThreads] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(false);
+  const [timeoutError, setTimeoutError] = useState<string | null>(null);
+
   const [isComposing, setIsComposing] = useState(false);
   const [newSmsRecipient, setNewSmsRecipient] = useState('');
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Helper to manage loading with timeout
+  const startLoadingTimeout = (type: 'threads' | 'messages') => {
+    setTimeoutError(null);
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    
+    timeoutRef.current = setTimeout(() => {
+      if (type === 'threads') setLoadingThreads(false);
+      if (type === 'messages') setLoadingMessages(false);
+      setTimeoutError("Request timed out. Your phone might be offline or asleep.");
+    }, 10000); // 10s timeout
+  };
 
   // Auto-select first phone if none selected
   useEffect(() => {
@@ -40,50 +59,61 @@ const SmsClient: React.FC<SmsClientProps> = ({ apiKey, devices, wsPush }) => {
   useEffect(() => {
     if (!wsPush) return;
 
-    // Update threads list
-    if (wsPush.type === 'messaging_extension_reply' && wsPush.data?.threads) {
-        setThreads(wsPush.data.threads);
-        setLoadingThreads(false);
-    }
-    
-    // Update messages list
-    if (wsPush.type === 'messaging_extension_reply' && wsPush.data?.messages) {
-         // Create a copy before reversing to avoid mutation in strict mode
-         const newMessages = [...wsPush.data.messages].reverse();
-         setMessages(newMessages);
-         setLoadingMessages(false);
+    if (wsPush.type === 'messaging_extension_reply') {
+        const data = wsPush.data;
+        
+        if (!data) return;
+
+        // Update threads list
+        if (data.threads) {
+            setThreads(data.threads);
+            setLoadingThreads(false);
+            if (timeoutRef.current) clearTimeout(timeoutRef.current);
+        }
+        
+        // Update messages list
+        if (data.messages) {
+            const msgs = data.messages;
+            const newMessages = [...msgs].reverse();
+            setMessages(newMessages);
+            setLoadingMessages(false);
+            if (timeoutRef.current) clearTimeout(timeoutRef.current);
+        }
     }
 
     // Refresh on changes
     if (wsPush.type === 'sms_changed' && selectedDevice) {
-         service.fetchSMSThreads(apiKey, selectedDevice);
+         service.fetchSMSThreads(apiKey, user.iden, selectedDevice);
          if (selectedThreadId) {
-             service.fetchThreadMessages(apiKey, selectedDevice, selectedThreadId);
+             service.fetchThreadMessages(apiKey, user.iden, selectedDevice, selectedThreadId);
          }
     }
-  }, [wsPush, apiKey, selectedDevice, selectedThreadId]);
+  }, [wsPush, apiKey, user.iden, selectedDevice, selectedThreadId]);
 
   // Fetch threads when device changes
   useEffect(() => {
     if (selectedDevice) {
         setLoadingThreads(true);
-        service.fetchSMSThreads(apiKey, selectedDevice).catch(err => {
+        startLoadingTimeout('threads');
+        service.fetchSMSThreads(apiKey, user.iden, selectedDevice).catch(err => {
             console.error(err);
             setLoadingThreads(false);
         });
     }
-  }, [selectedDevice, apiKey]);
+    return () => { if (timeoutRef.current) clearTimeout(timeoutRef.current); };
+  }, [selectedDevice, apiKey, user.iden]);
 
   // Fetch messages when thread selected
   useEffect(() => {
     if (selectedDevice && selectedThreadId) {
         setLoadingMessages(true);
-        service.fetchThreadMessages(apiKey, selectedDevice, selectedThreadId).catch(err => {
+        startLoadingTimeout('messages');
+        service.fetchThreadMessages(apiKey, user.iden, selectedDevice, selectedThreadId).catch(err => {
              console.error(err);
              setLoadingMessages(false);
         });
     }
-  }, [selectedDevice, selectedThreadId, apiKey]);
+  }, [selectedDevice, selectedThreadId, apiKey, user.iden]);
 
   // Scroll to bottom
   useEffect(() => {
@@ -98,7 +128,7 @@ const SmsClient: React.FC<SmsClientProps> = ({ apiKey, devices, wsPush }) => {
 
     const target = selectedThreadId || newSmsRecipient;
 
-    // Optimistic update if in a thread
+    // Optimistic update
     const tempMsg: SmsMessage = {
         id: Date.now().toString(),
         direction: '2',
@@ -114,21 +144,21 @@ const SmsClient: React.FC<SmsClientProps> = ({ apiKey, devices, wsPush }) => {
     const msgToSend = smsDraft;
     setSmsDraft('');
     
-    // If composing new, clear state to show thread list or loading
     if (isComposing) {
         setIsComposing(false);
         setNewSmsRecipient('');
         setLoadingThreads(true);
+        startLoadingTimeout('threads');
     }
 
     try {
-      await service.sendSMS(apiKey, selectedDevice, target, msgToSend);
-      // Refresh after a delay
+      await service.sendSMS(apiKey, user.iden, selectedDevice, target, msgToSend);
+      // Refresh after a delay to allow sync
       setTimeout(() => {
           if (selectedThreadId) {
-             service.fetchThreadMessages(apiKey, selectedDevice, selectedThreadId);
+             service.fetchThreadMessages(apiKey, user.iden, selectedDevice, selectedThreadId);
           } else {
-             service.fetchSMSThreads(apiKey, selectedDevice);
+             service.fetchSMSThreads(apiKey, user.iden, selectedDevice);
           }
       }, 2000);
     } catch (err) {
@@ -137,6 +167,18 @@ const SmsClient: React.FC<SmsClientProps> = ({ apiKey, devices, wsPush }) => {
           setMessages(prev => prev.filter(m => m.id !== tempMsg.id));
       }
     }
+  };
+
+  const handleRetry = () => {
+      if (selectedThreadId && selectedDevice) {
+          setLoadingMessages(true);
+          startLoadingTimeout('messages');
+          service.fetchThreadMessages(apiKey, user.iden, selectedDevice, selectedThreadId);
+      } else if (selectedDevice) {
+          setLoadingThreads(true);
+          startLoadingTimeout('threads');
+          service.fetchSMSThreads(apiKey, user.iden, selectedDevice);
+      }
   };
 
   if (!selectedDevice) {
@@ -213,9 +255,16 @@ const SmsClient: React.FC<SmsClientProps> = ({ apiKey, devices, wsPush }) => {
               </div>
               
               <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                  {timeoutError && (
+                      <div className="p-4 text-center text-xs text-amber-600 bg-amber-50 rounded-lg border border-amber-100 mb-4">
+                          <AlertCircle className="w-4 h-4 mx-auto mb-1" />
+                          {timeoutError}
+                          <button onClick={handleRetry} className="block w-full mt-2 text-amber-700 font-bold hover:underline">Retry</button>
+                      </div>
+                  )}
                   {loadingMessages ? (
                       <div className="flex justify-center py-8"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-600"></div></div>
-                  ) : messages.length === 0 ? (
+                  ) : messages.length === 0 && !timeoutError ? (
                       <div className="text-center text-slate-400 text-sm py-10">No messages found</div>
                   ) : (
                       messages.map((msg, idx) => (
@@ -264,16 +313,23 @@ const SmsClient: React.FC<SmsClientProps> = ({ apiKey, devices, wsPush }) => {
                 <option key={d.iden} value={d.iden}>{d.nickname || d.model}</option>
                 ))}
             </select>
-            <button onClick={() => service.fetchSMSThreads(apiKey, selectedDevice)} className="p-2 text-slate-500 hover:text-emerald-600 rounded-full">
+            <button onClick={() => service.fetchSMSThreads(apiKey, user.iden, selectedDevice)} className="p-2 text-slate-500 hover:text-emerald-600 rounded-full">
                 <RefreshCw className={`w-4 h-4 ${loadingThreads ? 'animate-spin' : ''}`} />
             </button>
         </div>
         
         {/* List */}
         <div className="flex-1 overflow-y-auto">
+            {timeoutError && (
+                <div className="m-4 p-4 text-center text-xs text-amber-600 bg-amber-50 rounded-lg border border-amber-100">
+                    <AlertCircle className="w-4 h-4 mx-auto mb-1" />
+                    {timeoutError}
+                    <button onClick={handleRetry} className="block w-full mt-2 text-amber-700 font-bold hover:underline">Retry</button>
+                </div>
+            )}
             {loadingThreads && threads.length === 0 ? (
                 <div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div></div>
-            ) : threads.length === 0 ? (
+            ) : threads.length === 0 && !timeoutError ? (
                 <div className="text-center py-10 text-slate-400 text-sm px-6">
                     No SMS threads found. Make sure your Android device is on.
                 </div>

@@ -1,4 +1,3 @@
-
 export interface User {
   iden: string;
   email: string;
