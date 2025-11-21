@@ -107,7 +107,7 @@ const SendPush: React.FC<SendPushProps> = ({
   return (
     <div className="flex flex-col h-full">
       {/* Send Form */}
-      <div className="p-4 bg-white border-b border-slate-200">
+      <div className="p-4 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
         <form onSubmit={handleSend} className="space-y-3">
           <div className="flex gap-2">
             <select
@@ -181,18 +181,23 @@ const SendPush: React.FC<SendPushProps> = ({
             No pushes yet. Send your first message above!
           </div>
         ) : (
-          <div className="divide-y divide-slate-100">
+          <div className="divide-y divide-slate-100 dark:divide-slate-800">
             {pushes.map((push) => (
-              <div key={push.iden} className="p-4 hover:bg-slate-50 transition-colors">
+              <div
+                key={push.iden}
+                className="p-4 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+              >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     {push.title && (
-                      <h4 className="font-semibold text-slate-800 text-sm mb-1 truncate">
+                      <h4 className="font-semibold text-slate-800 dark:text-slate-200 text-sm mb-1 truncate">
                         {push.title}
                       </h4>
                     )}
                     {push.body && (
-                      <p className="text-slate-600 text-sm mb-2 line-clamp-2">{push.body}</p>
+                      <p className="text-slate-600 dark:text-slate-300 text-sm mb-2 line-clamp-2">
+                        {push.body}
+                      </p>
                     )}
                     {push.url && (
                       <a
@@ -205,7 +210,7 @@ const SendPush: React.FC<SendPushProps> = ({
                         <span className="truncate">{push.url}</span>
                       </a>
                     )}
-                    <div className="flex items-center gap-3 text-xs text-slate-400">
+                    <div className="flex items-center gap-3 text-xs text-slate-400 dark:text-slate-500">
                       <span>{new Date(push.created * 1000).toLocaleString()}</span>
                       <span className="capitalize">{push.type}</span>
                     </div>

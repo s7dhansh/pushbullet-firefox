@@ -9,6 +9,7 @@
   "permissions": [
     "storage",
     "notifications",
+    "clipboardWrite",
     "https://api.pushbullet.com/*",
     "wss://stream.pushbullet.com/*"
   ],

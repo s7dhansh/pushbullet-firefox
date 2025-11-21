@@ -3,6 +3,7 @@
 import { Push, SmsThread, SmsMessage } from './types';
 
 declare const chrome: any;
+declare const navigator: any;
 
 let socket: WebSocket | null = null;
 let apiKey: string | null = null;
@@ -13,6 +14,7 @@ let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let intentionalClose = false;
 let isConnecting = false;
 let pendingSmsTimer: ReturnType<typeof setTimeout> | null = null;
+const otpMap: Record<string, string> = {};
 
 if (typeof chrome !== 'undefined' && chrome.storage) {
   chrome.storage.local.get(['pb_api_key', 'pb_user_iden'], (result: any) => {
@@ -136,13 +138,58 @@ function connectWebSocket() {
   };
 }
 
+function extractOtp(text: string): string | null {
+  if (!text) return null;
+  const patterns = [
+    /\b(?:otp|code|verification|passcode|auth|2fa|login)\b[^A-Za-z0-9]*([A-Za-z0-9]{4,8})/i,
+    /(?<!\d)(\d{6})(?!\d)/,
+    /(?<!\d)(\d{4,8})(?!\d)/,
+  ];
+  for (const re of patterns) {
+    const m = text.match(re);
+    if (m) return m[1];
+  }
+  return null;
+}
+
+function copyText(text: string) {
+  try {
+    if (navigator && navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text);
+      return;
+    }
+  } catch (e) {
+    void 0;
+  }
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+  } catch (e) {
+    void 0;
+  }
+}
+
 function createNotification(title: string, body: string, iconBase64?: string, id?: string) {
-  chrome.notifications.create(id || `sms-${Date.now()}`, {
+  const candidate = `${title || ''}\n${body || ''}`;
+  const otp = extractOtp(candidate);
+  const notifId = id || `sms-${Date.now()}`;
+  const finalTitle = otp ? `OTP: ${otp}` : title;
+  const finalMessage = body || '';
+  const options: any = {
     type: 'basic',
     iconUrl: iconBase64 ? `data:image/png;base64,${iconBase64}` : 'icon.svg',
-    title,
-    message: body || '',
+    title: finalTitle,
+    message: finalMessage,
     priority: 2,
+  };
+  if (otp) options.buttons = [{ title: 'Copy OTP' }];
+  chrome.notifications.create(notifId, options, (createdId: string) => {
+    const idToUse = createdId || notifId;
+    if (otp) otpMap[idToUse] = otp;
   });
 }
 
@@ -172,7 +219,6 @@ function handlePush(push: Push) {
   else if (push.type === 'sms_changed') {
     const notifications = (push as any).notifications || [];
     if (notifications.length > 0) {
-      // Show notification for the most recent SMS
       const latest = notifications[notifications.length - 1];
       createNotification(
         latest.title || 'New SMS',
@@ -182,6 +228,20 @@ function handlePush(push: Push) {
       );
     }
   }
+}
+
+if (typeof chrome !== 'undefined' && chrome.notifications && chrome.notifications.onButtonClicked) {
+  chrome.notifications.onButtonClicked.addListener((notifId: string, buttonIndex: number) => {
+    if (buttonIndex === 0 && otpMap[notifId]) {
+      copyText(otpMap[notifId]);
+    }
+  });
+}
+
+if (typeof chrome !== 'undefined' && chrome.notifications && chrome.notifications.onClosed) {
+  chrome.notifications.onClosed.addListener((notifId: string) => {
+    if (otpMap[notifId]) delete otpMap[notifId];
+  });
 }
 
 // Minimal ephemeral helpers (avoid imports in MV2 background)

@@ -14,13 +14,13 @@ afterEach(() => {
 global.chrome = {
   storage: {
     local: {
-      get: vi.fn((keys, callback) => {
+      get: vi.fn((_keys, callback) => {
         callback({});
       }),
-      set: vi.fn((items, callback) => {
+      set: vi.fn((_items, callback) => {
         callback?.();
       }),
-      remove: vi.fn((keys, callback) => {
+      remove: vi.fn((_keys, callback) => {
         callback?.();
       }),
     },

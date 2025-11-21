@@ -1,5 +1,6 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import SendPush from '../src/components/SendPush';
 import * as service from '../src/services/pushbulletService';
@@ -304,7 +305,7 @@ describe('SendPush Component', () => {
       />
     );
 
-    const refreshButton = screen.getByRole('button', { name: '' }); // RefreshCw icon button
+    const refreshButton = screen.getByRole('button', { name: /refresh push history/i });
     await user.click(refreshButton);
 
     expect(mockOnRefresh).toHaveBeenCalled();

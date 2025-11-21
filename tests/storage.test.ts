@@ -9,7 +9,7 @@ describe('Storage Utils', () => {
   describe('getStorage', () => {
     it('retrieves value from chrome storage', async () => {
       const mockValue = 'test-value';
-      vi.mocked(chrome.storage.local.get).mockImplementation((keys, callback) => {
+      vi.mocked(chrome.storage.local.get).mockImplementation((_keys, callback) => {
         callback({ test_key: mockValue });
       });
 
@@ -20,7 +20,7 @@ describe('Storage Utils', () => {
     });
 
     it('returns null when key not found', async () => {
-      vi.mocked(chrome.storage.local.get).mockImplementation((keys, callback) => {
+      vi.mocked(chrome.storage.local.get).mockImplementation((_keys, callback) => {
         callback({});
       });
 
@@ -32,7 +32,7 @@ describe('Storage Utils', () => {
 
   describe('setStorage', () => {
     it('stores value in chrome storage', async () => {
-      vi.mocked(chrome.storage.local.set).mockImplementation((items, callback) => {
+      vi.mocked(chrome.storage.local.set).mockImplementation((_items, callback) => {
         callback?.();
       });
 
@@ -47,7 +47,7 @@ describe('Storage Utils', () => {
 
   describe('removeStorage', () => {
     it('removes value from chrome storage', async () => {
-      vi.mocked(chrome.storage.local.remove).mockImplementation((keys, callback) => {
+      vi.mocked(chrome.storage.local.remove).mockImplementation((_keys, callback) => {
         callback?.();
       });
 

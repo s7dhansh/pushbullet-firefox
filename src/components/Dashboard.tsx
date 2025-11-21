@@ -6,6 +6,7 @@ import Sidebar from './Sidebar';
 import DeviceList from './DeviceList';
 import SmsClient from './SmsClient';
 import SendPush from './SendPush';
+import Settings from './Settings';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 declare const chrome: any;
@@ -23,6 +24,8 @@ const Dashboard: React.FC<DashboardProps> = ({ apiKey, user, onLogout }) => {
   const [loading, setLoading] = useState(false);
   const [wsConnected, setWsConnected] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
+  const [themeMode, setThemeMode] = useState<'system' | 'light' | 'dark'>('system');
+  const mqlRef = React.useRef<MediaQueryList | null>(null);
 
   // Pass WS updates to children
   const [wsPush, setWsPush] = useState<Push | null>(null);
@@ -91,6 +94,63 @@ const Dashboard: React.FC<DashboardProps> = ({ apiKey, user, onLogout }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiKey]);
 
+  useEffect(() => {
+    let initial: 'system' | 'light' | 'dark' = 'system';
+    try {
+      const saved = localStorage.getItem('pb_theme') as 'system' | 'light' | 'dark' | null;
+      if (saved === 'light' || saved === 'dark' || saved === 'system') initial = saved;
+    } catch {
+      // Ignore errors
+    }
+    setThemeMode(initial);
+
+    const apply = (mode: 'system' | 'light' | 'dark') => {
+      if (mode === 'dark') {
+        document.documentElement.classList.add('dark');
+        return;
+      }
+      if (mode === 'light') {
+        document.documentElement.classList.remove('dark');
+        return;
+      }
+      const mql = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)');
+      mqlRef.current = mql || null;
+      const toDark = !!mql && mql.matches;
+      if (toDark) document.documentElement.classList.add('dark');
+      else document.documentElement.classList.remove('dark');
+      if (mql) {
+        const handler = (e: MediaQueryListEvent) => {
+          if (themeMode !== 'system') return;
+          if (e.matches) document.documentElement.classList.add('dark');
+          else document.documentElement.classList.remove('dark');
+        };
+        mql.addEventListener('change', handler);
+        return () => mql.removeEventListener('change', handler);
+      }
+    };
+
+    const cleanup = apply(initial);
+    return typeof cleanup === 'function' ? cleanup : undefined;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const mode = themeMode;
+    if (mode === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else if (mode === 'light') {
+      document.documentElement.classList.remove('dark');
+    } else {
+      const mql =
+        mqlRef.current ||
+        (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)')) ||
+        null;
+      const toDark = !!mql && mql.matches;
+      if (toDark) document.documentElement.classList.add('dark');
+      else document.documentElement.classList.remove('dark');
+    }
+  }, [themeMode]);
+
   const requestNotificationPermission = () => {
     if (!isExtension && 'Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission();
@@ -98,7 +158,7 @@ const Dashboard: React.FC<DashboardProps> = ({ apiKey, user, onLogout }) => {
   };
 
   return (
-    <div className="flex h-full bg-slate-50 overflow-hidden relative">
+    <div className="flex h-full bg-slate-50 dark:bg-slate-900 overflow-hidden relative">
       {/* Error Banner */}
       {apiError && (
         <div className="absolute top-0 left-0 right-0 z-50 bg-red-600 text-white px-4 py-2 text-xs flex items-center justify-between shadow-md">
@@ -121,7 +181,7 @@ const Dashboard: React.FC<DashboardProps> = ({ apiKey, user, onLogout }) => {
         requestNotificationPermission={requestNotificationPermission}
       />
 
-      <main className="flex-1 overflow-hidden h-full relative bg-white md:bg-slate-50 flex flex-col">
+      <main className="flex-1 overflow-hidden h-full relative bg-white dark:bg-slate-900 md:bg-slate-50 md:dark:bg-slate-900 flex flex-col">
         {activeTab === Tab.DEVICES && (
           <div className="h-full overflow-y-auto no-scrollbar">
             <DeviceList devices={devices} />
@@ -144,6 +204,12 @@ const Dashboard: React.FC<DashboardProps> = ({ apiKey, user, onLogout }) => {
         {activeTab === Tab.SMS && (
           <div className="h-full overflow-hidden">
             <SmsClient apiKey={apiKey} user={user} devices={devices} wsPush={wsPush} />
+          </div>
+        )}
+
+        {activeTab === Tab.SETTINGS && (
+          <div className="h-full overflow-hidden">
+            <Settings initialMode={themeMode} onThemeChange={setThemeMode} />
           </div>
         )}
       </main>
