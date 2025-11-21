@@ -20,5 +20,18 @@
   "background": {
     "scripts": ["background.js"]
   },
-  "content_security_policy": "script-src 'self' 'unsafe-eval'; object-src 'self'"
+  "content_security_policy": "script-src 'self' 'unsafe-eval'; object-src 'self'",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "bulletbase@pushbullet.extension",
+      "strict_min_version": "90.0",
+      "data_collection_permissions": {
+        "required": []
+      }
+    }
+  },
+  "developer": {
+    "name": "BulletBase Contributors",
+    "url": "https://github.com/yourusername/pushbullet-firefox"
+  }
 }
