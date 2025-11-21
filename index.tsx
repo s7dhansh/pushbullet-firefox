@@ -1,1 +1,0 @@
-// DEPRECATED: Please delete this file. Code moved to src/main.tsx

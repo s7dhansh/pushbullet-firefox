@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>BulletBase</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="/src/style.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
       html, body {
@@ -37,20 +37,7 @@
         color: #ef4444;
       }
     </style>
-  <script type="importmap">
-{
-  "imports": {
-    "vite": "https://aistudiocdn.com/vite@^7.2.2",
-    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1",
-    "url": "https://aistudiocdn.com/url@^0.11.4",
-    "path": "https://aistudiocdn.com/path@^0.12.7",
-    "react": "https://aistudiocdn.com/react@^19.2.0",
-    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0",
-    "react/": "https://aistudiocdn.com/react@^19.2.0/",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/"
-  }
-}
-</script>
+  
 </head>
   <body>
     <div id="error-overlay">
@@ -69,18 +56,6 @@
     </style>
     
     <script type="module" src="/src/main.tsx"></script>
-    <script>
-      window.onerror = function(msg, url, line, col, error) {
-        var overlay = document.getElementById('error-overlay');
-        if (overlay) {
-          overlay.style.display = 'block';
-          overlay.innerHTML += '<div style="margin-bottom:10px; border-bottom:1px solid #eee; padding-bottom:10px;">' +
-            '<strong>Global Error:</strong> ' + msg + '<br>' +
-            '<small>' + (url || 'unknown script') + ':' + line + '</small>' +
-            '</div>';
-        }
-        console.error('Global Error caught:', msg, error);
-      };
-    </script>
+    
   </body>
 </html>

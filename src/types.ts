@@ -27,7 +27,7 @@ export interface Push {
   active: boolean;
   created: number;
   modified: number;
-  type: 'note' | 'link' | 'file' | 'mirror' | 'sms_changed' | 'messaging_extension_reply';
+  type: 'note' | 'link' | 'file' | 'mirror' | 'sms_changed' | 'messaging_extension_reply' | 'messaging_extension_list_threads' | 'messaging_extension_list_messages';
   dismissed: boolean;
   direction: 'self' | 'outgoing' | 'incoming';
   sender_iden: string;
