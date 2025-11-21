@@ -6,7 +6,7 @@ import Sidebar from './Sidebar';
 import DeviceList from './DeviceList';
 import SmsClient from './SmsClient';
 import SendPush from './SendPush';
-import Settings from './Settings';
+// import Settings from './Settings';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 declare const chrome: any;
@@ -25,6 +25,7 @@ const Dashboard: React.FC<DashboardProps> = ({ apiKey, user, onLogout }) => {
   const [wsConnected, setWsConnected] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
   const [themeMode, setThemeMode] = useState<'system' | 'light' | 'dark'>('system');
+  const [, forceUpdate] = useState({});
   const mqlRef = React.useRef<MediaQueryList | null>(null);
 
   // Pass WS updates to children
@@ -104,50 +105,56 @@ const Dashboard: React.FC<DashboardProps> = ({ apiKey, user, onLogout }) => {
     }
     setThemeMode(initial);
 
-    const apply = (mode: 'system' | 'light' | 'dark') => {
-      if (mode === 'dark') {
-        document.documentElement.classList.add('dark');
-        return;
-      }
-      if (mode === 'light') {
-        document.documentElement.classList.remove('dark');
-        return;
-      }
-      const mql = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)');
-      mqlRef.current = mql || null;
-      const toDark = !!mql && mql.matches;
-      if (toDark) document.documentElement.classList.add('dark');
-      else document.documentElement.classList.remove('dark');
-      if (mql) {
-        const handler = (e: MediaQueryListEvent) => {
-          if (themeMode !== 'system') return;
-          if (e.matches) document.documentElement.classList.add('dark');
-          else document.documentElement.classList.remove('dark');
-        };
-        mql.addEventListener('change', handler);
-        return () => mql.removeEventListener('change', handler);
-      }
-    };
-
-    const cleanup = apply(initial);
-    return typeof cleanup === 'function' ? cleanup : undefined;
+    // Set up media query listener for system theme
+    if (window.matchMedia) {
+      const mql = window.matchMedia('(prefers-color-scheme: dark)');
+      mqlRef.current = mql;
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    const mode = themeMode;
-    if (mode === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else if (mode === 'light') {
-      document.documentElement.classList.remove('dark');
+    const setDark = (on: boolean) => {
+      const html = document.documentElement;
+      const body = document.body;
+
+      if (on) {
+        html.classList.add('dark');
+        body.classList.add('dark');
+        html.setAttribute('data-theme', 'dark');
+        html.style.colorScheme = 'dark';
+        body.style.colorScheme = 'dark';
+      } else {
+        html.classList.remove('dark');
+        body.classList.remove('dark');
+        html.setAttribute('data-theme', 'light');
+        html.style.colorScheme = 'light';
+        body.style.colorScheme = 'light';
+      }
+
+      // Force re-render
+      forceUpdate({});
+    };
+
+    if (themeMode === 'dark') {
+      setDark(true);
+    } else if (themeMode === 'light') {
+      setDark(false);
     } else {
+      // System mode
       const mql =
-        mqlRef.current ||
-        (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)')) ||
-        null;
+        mqlRef.current || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)'));
       const toDark = !!mql && mql.matches;
-      if (toDark) document.documentElement.classList.add('dark');
-      else document.documentElement.classList.remove('dark');
+      setDark(toDark);
+
+      // Listen for system theme changes
+      if (mql) {
+        const handler = (e: MediaQueryListEvent) => {
+          setDark(e.matches);
+        };
+        mql.addEventListener('change', handler);
+        return () => mql.removeEventListener('change', handler);
+      }
     }
   }, [themeMode]);
 
@@ -181,7 +188,7 @@ const Dashboard: React.FC<DashboardProps> = ({ apiKey, user, onLogout }) => {
         requestNotificationPermission={requestNotificationPermission}
       />
 
-      <main className="flex-1 overflow-hidden h-full relative bg-white dark:bg-slate-900 md:bg-slate-50 md:dark:bg-slate-900 flex flex-col">
+      <main className="flex-1 overflow-hidden h-full relative flex flex-col">
         {activeTab === Tab.DEVICES && (
           <div className="h-full overflow-y-auto no-scrollbar">
             <DeviceList devices={devices} />
@@ -207,11 +214,11 @@ const Dashboard: React.FC<DashboardProps> = ({ apiKey, user, onLogout }) => {
           </div>
         )}
 
-        {activeTab === Tab.SETTINGS && (
+        {/* {activeTab === Tab.SETTINGS && (
           <div className="h-full overflow-hidden">
             <Settings initialMode={themeMode} onThemeChange={setThemeMode} />
           </div>
-        )}
+        )} */}
       </main>
     </div>
   );

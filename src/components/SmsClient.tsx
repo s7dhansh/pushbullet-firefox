@@ -302,41 +302,45 @@ const SmsClient: React.FC<SmsClientProps> = ({ apiKey, user, devices, wsPush }) 
 
   if (isComposing) {
     return (
-      <div className="flex flex-col h-full bg-slate-50">
-        <div className="flex items-center p-3 bg-white border-b border-slate-200 shadow-sm">
+      <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-900">
+        <div className="flex items-center p-3 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 shadow-sm">
           <button
             aria-label="Go back to SMS list"
             type="button"
             onClick={() => setIsComposing(false)}
-            className="mr-3 p-1 hover:bg-slate-100 rounded-full"
+            className="mr-3 p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full"
           >
-            <ArrowLeft className="w-5 h-5 text-slate-600" />
+            <ArrowLeft className="w-5 h-5 text-slate-600 dark:text-slate-300" />
           </button>
-          <h3 className="font-semibold text-slate-800">New Message</h3>
+          <h3 className="font-semibold text-slate-800 dark:text-slate-200">New Message</h3>
         </div>
         <div className="p-4">
-          <label className="block text-xs font-medium text-slate-500 mb-1">Recipient</label>
+          <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
+            Recipient
+          </label>
           <input
             type="tel"
             value={newSmsRecipient}
             onChange={(e) => setNewSmsRecipient(e.target.value)}
             placeholder="+1 234 567 8900"
-            className="w-full p-3 border border-slate-300 rounded-lg mb-4 focus:ring-2 focus:ring-emerald-500"
+            className="w-full p-3 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg mb-4 focus:ring-2 focus:ring-emerald-500"
           />
-          <label className="block text-xs font-medium text-slate-500 mb-1">Message</label>
+          <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
+            Message
+          </label>
           <textarea
             value={smsDraft}
             onChange={(e) => setSmsDraft(e.target.value)}
             placeholder="Type your message..."
             rows={4}
-            className="w-full p-3 border border-slate-300 rounded-lg mb-4 focus:ring-2 focus:ring-emerald-500"
+            className="w-full p-3 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg mb-4 focus:ring-2 focus:ring-emerald-500"
           />
           <button
             aria-label="Send message"
             type="submit"
             onClick={handleSendSMS}
             disabled={!newSmsRecipient || !smsDraft}
-            className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white p-3 rounded-lg font-medium flex items-center justify-center"
+            className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 dark:disabled:bg-slate-700 text-white p-3 rounded-lg font-medium flex items-center justify-center"
           >
             <Send className="w-4 h-4 mr-2" /> Send
           </button>
@@ -348,29 +352,29 @@ const SmsClient: React.FC<SmsClientProps> = ({ apiKey, user, devices, wsPush }) 
   if (selectedThreadId) {
     const currentThread = threads.find((t) => t.id === selectedThreadId);
     return (
-      <div className="flex flex-col h-full bg-slate-50">
-        <div className="flex items-center p-3 bg-white border-b border-slate-200 shadow-sm">
+      <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-900">
+        <div className="flex items-center p-3 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 shadow-sm">
           <button
             aria-label="Go back to SMS list"
             type="button"
             onClick={() => setSelectedThreadId(null)}
-            className="mr-3 p-1 hover:bg-slate-100 rounded-full"
+            className="mr-3 p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full"
           >
-            <ArrowLeft className="w-5 h-5 text-slate-600" />
+            <ArrowLeft className="w-5 h-5 text-slate-600 dark:text-slate-300" />
           </button>
           <div className="flex-1 overflow-hidden">
-            <h3 className="font-semibold text-slate-800 truncate">
+            <h3 className="font-semibold text-slate-800 dark:text-slate-200 truncate">
               {currentThread?.recipients[0]?.name ||
                 currentThread?.recipients[0]?.address ||
                 'Unknown'}
             </h3>
-            <p className="text-xs text-slate-500 truncate">
+            <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
               {currentThread?.recipients[0]?.number}
             </p>
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50 dark:bg-slate-900">
           {timeoutError && (
             <div className="p-4 text-center text-xs text-amber-600 bg-amber-50 rounded-lg border border-amber-100 mb-4">
               <AlertCircle className="w-4 h-4 mx-auto mb-1" />
@@ -401,7 +405,7 @@ const SmsClient: React.FC<SmsClientProps> = ({ apiKey, user, devices, wsPush }) 
                   className={`max-w-[75%] px-4 py-2 rounded-xl text-sm ${
                     msg.direction === '2'
                       ? 'bg-emerald-600 text-white rounded-tr-none'
-                      : 'bg-white border border-slate-200 text-slate-800 rounded-tl-none shadow-sm'
+                      : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-tl-none shadow-sm'
                   }`}
                 >
                   {msg.body}
@@ -412,14 +416,14 @@ const SmsClient: React.FC<SmsClientProps> = ({ apiKey, user, devices, wsPush }) 
           <div ref={messagesEndRef} />
         </div>
 
-        <div className="p-3 bg-white border-t border-slate-200">
+        <div className="p-3 bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700">
           <form onSubmit={handleSendSMS} className="flex items-center space-x-2">
             <input
               type="text"
               value={smsDraft}
               onChange={(e) => setSmsDraft(e.target.value)}
               placeholder="Text message"
-              className="flex-1 px-4 py-2 border border-slate-300 rounded-full text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
+              className="flex-1 px-4 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 rounded-full text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
             />
             <button
               aria-label="Send message"
@@ -435,14 +439,14 @@ const SmsClient: React.FC<SmsClientProps> = ({ apiKey, user, devices, wsPush }) 
   }
 
   return (
-    <div className="flex flex-col h-full relative">
+    <div className="flex flex-col h-full relative bg-white dark:bg-slate-900">
       {/* Header */}
-      <div className="p-4 border-b border-slate-200 bg-white flex justify-between items-center shadow-sm z-10">
+      <div className="p-4 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 flex justify-between items-center shadow-sm z-10">
         <select
           aria-label="Select SMS device"
           value={selectedDevice}
           onChange={(e) => setSelectedDevice(e.target.value)}
-          className="max-w-[200px] p-1.5 border border-slate-300 rounded-lg text-sm bg-slate-50 outline-none"
+          className="max-w-[200px] p-1.5 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 outline-none"
         >
           {devices
             .filter((d) => d.has_sms)
@@ -456,14 +460,14 @@ const SmsClient: React.FC<SmsClientProps> = ({ apiKey, user, devices, wsPush }) 
           aria-label="Refresh SMS threads"
           type="button"
           onClick={() => service.fetchSMSThreads(apiKey, user.iden, selectedDevice)}
-          className="p-2 text-slate-500 hover:text-emerald-600 rounded-full"
+          className="p-2 text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-500 rounded-full"
         >
           <RefreshCw className={`w-4 h-4 ${loadingThreads ? 'animate-spin' : ''}`} />
         </button>
       </div>
 
       {/* List */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto bg-white dark:bg-slate-900">
         {timeoutError && (
           <div className="m-4 p-4 text-center text-xs text-amber-600 bg-amber-50 rounded-lg border border-amber-100">
             <AlertCircle className="w-4 h-4 mx-auto mb-1" />

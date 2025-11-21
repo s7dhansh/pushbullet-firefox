@@ -1,5 +1,6 @@
 import React from 'react';
-import { Smartphone, MessageSquare, Send, LogOut, Settings as SettingsIcon } from 'lucide-react';
+import { Smartphone, MessageSquare, Send, LogOut } from 'lucide-react';
+// import { Smartphone, MessageSquare, Send, LogOut, Settings as SettingsIcon } from 'lucide-react';
 import { Tab, User } from '../types';
 
 interface SidebarProps {
@@ -69,7 +70,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           <MessageSquare className="w-5 h-5" />
           <span className="hidden md:inline">SMS</span>
         </button>
-        <button
+        {/* <button
           aria-label="Settings"
           type="button"
           onClick={() => setActiveTab(Tab.SETTINGS)}
@@ -78,7 +79,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         >
           <SettingsIcon className="w-5 h-5" />
           <span className="hidden md:inline">Settings</span>
-        </button>
+        </button> */}
       </nav>
       <div className="p-2 border-t border-slate-100 dark:border-slate-800">
         <button

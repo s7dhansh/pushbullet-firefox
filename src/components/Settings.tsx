@@ -9,10 +9,22 @@ interface SettingsProps {
 
 const Settings: React.FC<SettingsProps> = ({ initialMode = 'system', onThemeChange }) => {
   const [mode, setMode] = useState<ThemeMode>(initialMode);
+  const [systemDark, setSystemDark] = useState<boolean>(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return false;
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  });
 
   useEffect(() => {
     setMode(initialMode);
   }, [initialMode]);
+
+  useEffect(() => {
+    if (!window.matchMedia) return;
+    const mql = window.matchMedia('(prefers-color-scheme: dark)');
+    const handler = (e: MediaQueryListEvent) => setSystemDark(e.matches);
+    mql.addEventListener('change', handler);
+    return () => mql.removeEventListener('change', handler);
+  }, []);
 
   const handleChange = (next: ThemeMode) => {
     setMode(next);
@@ -64,6 +76,15 @@ const Settings: React.FC<SettingsProps> = ({ initialMode = 'system', onThemeChan
             />
             Dark
           </label>
+        </div>
+        <div className="mt-4 text-xs text-slate-500 dark:text-slate-400">
+          {mode === 'system'
+            ? systemDark
+              ? 'Effective: Dark (from system)'
+              : 'Effective: Light (from system)'
+            : mode === 'dark'
+              ? 'Effective: Dark'
+              : 'Effective: Light'}
         </div>
       </div>
     </div>
