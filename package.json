@@ -18,6 +18,7 @@
     "type-check": "tsc --noEmit",
     "zip": "npm run build && cd dist && zip -r ../extension.zip .",
     "release": "mkdir -p releases && npm run build && cd dist && zip -r ../releases/v$(node -p \"require('../package.json').version\").zip . && cd .. && cp releases/v$(node -p \"require('./package.json').version\").zip extension.zip",
+    "xpi": "npm run build && web-ext build -s dist -a web-ext-artifacts --overwrite-dest --filename bulletbase-${npm_package_version}.xpi",
     "prepare": "husky install"
   },
   "dependencies": {
@@ -52,7 +53,8 @@
     "tailwindcss": "^4.1.17",
     "typescript": "^5.2.2",
     "vite": "^5.0.8",
-    "vitest": "^4.0.12"
+    "vitest": "^4.0.12",
+    "web-ext": "^7.10.0"
   },
   "lint-staged": {
     "*.{ts,tsx}": [

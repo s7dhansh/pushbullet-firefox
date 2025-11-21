@@ -5,3 +5,5 @@ coverage
 # Release files
 extension.zip
 releases/
+.DS_Store
+web-ext-artifacts/
