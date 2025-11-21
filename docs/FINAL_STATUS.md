@@ -168,7 +168,7 @@ Size: ~67KB
 ### Manifest Validation
 
 - [x] `manifest_version`: 2
-- [x] `name`: BulletBase - Pushbullet Client
+- [x] `name`: BulletBase - Pushbullet Unofficial Extension
 - [x] `version`: 1.0.2
 - [x] `description`: Present
 - [x] `icons`: Configured

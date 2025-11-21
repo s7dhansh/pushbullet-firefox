@@ -1,8 +1,8 @@
 {
   "manifest_version": 2,
-  "name": "BulletBase - Pushbullet Client",
+  "name": "BulletBase - Pushbullet Addon",
   "version": "1.0.2",
-  "description": "A feature-rich Pushbullet client for SMS mirroring and device management.",
+  "description": "A feature-rich Pushbullet addon/extension for SMS mirroring and device management.",
   "icons": {
     "48": "icon.svg"
   },
@@ -26,7 +26,7 @@
       "id": "bulletbase@pushbullet.extension",
       "strict_min_version": "90.0",
       "data_collection_permissions": {
-        "required": []
+        "required": ["authenticationInfo"]
       }
     }
   },
