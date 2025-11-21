@@ -49,6 +49,7 @@ export interface Push {
     threads?: SmsThread[];
     messages?: SmsMessage[];
   };
+  notifications?: { thread_id: string; title: string; body: string; timestamp: number }[];
 }
 
 export interface SmsThread {

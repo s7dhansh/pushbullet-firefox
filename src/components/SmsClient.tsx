@@ -89,7 +89,7 @@ const SmsClient: React.FC<SmsClientProps> = ({ apiKey, user, devices, wsPush }) 
 						setThreads(data.threads);
 						setLoadingThreads(false);
 						if (timeoutRef.current) clearTimeout(timeoutRef.current);
-						setTimeoutError(null); // Clear any timeout errors when we get a response
+						setTimeoutError(null);
 				}
 
 				// Update messages list
@@ -99,21 +99,46 @@ const SmsClient: React.FC<SmsClientProps> = ({ apiKey, user, devices, wsPush }) 
 						setMessages(newMessages);
 						setLoadingMessages(false);
 						if (timeoutRef.current) clearTimeout(timeoutRef.current);
-						setTimeoutError(null); // Clear any timeout errors when we get a response
+						setTimeoutError(null);
 				}
 		}
 
-		// Refresh on changes
-		if (wsPush.type === 'sms_changed' && selectedDevice) {
-				 service.fetchSMSThreads(apiKey, user.iden, selectedDevice);
-				 if (selectedThreadId) {
-						 service.fetchThreadMessages(apiKey, user.iden, selectedDevice, selectedThreadId);
-				 }
-		}
-
-		// Handle SMS-specific pushes for notifications
+		// Handle SMS-specific pushes for notifications and refresh
 		if (wsPush.type === 'sms_changed') {
-			// Optionally trigger refresh or visual indication of new SMS
+				const src = wsPush.source_device_iden;
+				const notifs = (wsPush as any).notifications || [];
+				if (selectedDevice && src === selectedDevice && Array.isArray(notifs) && notifs.length > 0) {
+						const byThread: Record<string, { title: string; body: string; timestamp: number }> = {};
+						notifs.forEach((n: any) => {
+								if (!byThread[n.thread_id] || byThread[n.thread_id].timestamp < n.timestamp) {
+										byThread[n.thread_id] = { title: n.title, body: n.body, timestamp: n.timestamp };
+								}
+						});
+						const minimalThreads: SmsThread[] = Object.keys(byThread)
+								.map(tid => {
+										const latest = byThread[tid];
+										return {
+												id: tid,
+												address: '',
+												recipients: [{ name: latest.title, address: '', number: '' }],
+												latest_message: latest.body,
+												timestamp: latest.timestamp,
+										};
+								})
+								.sort((a, b) => b.timestamp - a.timestamp);
+						setThreads(minimalThreads);
+						setLoadingThreads(false);
+						if (timeoutRef.current) clearTimeout(timeoutRef.current);
+						setTimeoutError(null);
+						setUsingFallback(false);
+				}
+
+				if (selectedDevice) {
+						service.fetchSMSThreads(apiKey, user.iden, selectedDevice);
+						if (selectedThreadId) {
+								service.fetchThreadMessages(apiKey, user.iden, selectedDevice, selectedThreadId);
+						}
+				}
 		}
 	}, [wsPush, apiKey, user.iden, selectedDevice, selectedThreadId]);
 

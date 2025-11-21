@@ -4,8 +4,8 @@ import { Tab, Device, Push, User, WebSocketMessage } from '../types';
 import * as service from '../services/pushbulletService';
 import Sidebar from './Sidebar';
 import DeviceList from './DeviceList';
-import PushHistory from './PushHistory';
 import SmsClient from './SmsClient';
+import SendPush from './SendPush';
 
 declare const chrome: any;
 
@@ -127,11 +127,12 @@ const Dashboard: React.FC<DashboardProps> = ({ apiKey, user, onLogout }) => {
         )}
         
         {activeTab === Tab.PUSHES && (
-          <div className="h-full overflow-y-auto no-scrollbar">
-            <PushHistory 
-              apiKey={apiKey} 
-              pushes={pushes} 
-              loading={loading} 
+          <div className="h-full overflow-hidden">
+            <SendPush 
+              apiKey={apiKey}
+              devices={devices}
+              pushes={pushes}
+              loading={loading}
               onRefresh={loadData}
               setLoading={setLoading}
             />

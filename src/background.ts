@@ -130,13 +130,40 @@ function createNotification(title: string, body: string, iconBase64?: string, id
 }
 
 function handlePush(push: Push) {
+    // Handle mirror notifications (including SMS from Android)
     if (push.type === 'mirror') {
-        createNotification(push.title || (push as any).application_name || 'Notification', push.body || '', (push as any).icon, (push as any).notification_id);
+        const title = push.title || (push as any).application_name || 'Notification';
+        const body = push.body || '';
+        const icon = (push as any).icon;
+        const notifId = (push as any).notification_id;
+        
+        // Show notification for all mirror pushes
+        createNotification(title, body, icon, notifId);
+        
+        // If it's from an SMS-capable device, refresh SMS threads
         if (apiKey && userIden && (push as any).source_device_iden) {
             fetchSMSThreads(apiKey, userIden, (push as any).source_device_iden).catch(() => {});
         }
-    } else if (push.type === 'link' || push.type === 'note') {
-            createNotification(push.title || 'New Push', push.body || (push as any).url ? 'Link received' : '', undefined, `push-${push.iden}`);
+    } 
+    // Handle regular pushes (note, link)
+    else if (push.type === 'link' || push.type === 'note') {
+        const title = push.title || 'New Push';
+        const body = push.body || ((push as any).url || '');
+        createNotification(title, body, undefined, `push-${push.iden}`);
+    }
+    // Handle SMS-specific notifications
+    else if (push.type === 'sms_changed') {
+        const notifications = (push as any).notifications || [];
+        if (notifications.length > 0) {
+            // Show notification for the most recent SMS
+            const latest = notifications[notifications.length - 1];
+            createNotification(
+                latest.title || 'New SMS',
+                latest.body || '',
+                undefined,
+                `sms-${latest.thread_id}-${Date.now()}`
+            );
+        }
     }
 }
 

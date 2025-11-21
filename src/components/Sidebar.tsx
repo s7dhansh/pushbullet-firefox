@@ -2,7 +2,7 @@ import React from 'react';
 import { 
   Smartphone, 
   MessageSquare, 
-  Bell, 
+  Send,
   LogOut, 
 } from 'lucide-react';
 import { Tab, User } from '../types';
@@ -47,11 +47,11 @@ const Sidebar: React.FC<SidebarProps> = ({
         </button>
         <button 
           onClick={() => setActiveTab(Tab.PUSHES)}
-          title="History"
+          title="Pushes"
           className={`w-full flex items-center justify-center md:justify-start md:space-x-3 px-2 md:px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === Tab.PUSHES ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-50'}`}
         >
-          <Bell className="w-5 h-5" />
-          <span className="hidden md:inline">History</span>
+          <Send className="w-5 h-5" />
+          <span className="hidden md:inline">Pushes</span>
         </button>
         <button 
           onClick={() => setActiveTab(Tab.SMS)}
