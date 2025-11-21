@@ -7,6 +7,7 @@ import DeviceList from './DeviceList';
 import SmsClient from './SmsClient';
 import SendPush from './SendPush';
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 declare const chrome: any;
 
 interface DashboardProps {
@@ -16,13 +17,13 @@ interface DashboardProps {
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ apiKey, user, onLogout }) => {
-  const [activeTab, setActiveTab] = useState<Tab>(Tab.DEVICES);
+  const [activeTab, setActiveTab] = useState<Tab>(Tab.PUSHES);
   const [devices, setDevices] = useState<Device[]>([]);
   const [pushes, setPushes] = useState<Push[]>([]);
   const [loading, setLoading] = useState(false);
   const [wsConnected, setWsConnected] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
-  
+
   // Pass WS updates to children
   const [wsPush, setWsPush] = useState<Push | null>(null);
 
@@ -33,18 +34,17 @@ const Dashboard: React.FC<DashboardProps> = ({ apiKey, user, onLogout }) => {
     setLoading(true);
     setApiError(null);
     try {
-      const [d, p] = await Promise.all([
-        service.getDevices(apiKey),
-        service.getPushes(apiKey)
-      ]);
+      const [d, p] = await Promise.all([service.getDevices(apiKey), service.getPushes(apiKey)]);
       setDevices(d);
       setPushes(p);
     } catch (error: any) {
       console.error('Data load error:', error);
       if (error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError')) {
-          setApiError("Network Error: CORS blocked or Offline. If using Web Preview, the Pushbullet API will be blocked by the browser. Please install as an Extension to function.");
+        setApiError(
+          'Network Error: CORS blocked or Offline. If using Web Preview, the Pushbullet API will be blocked by the browser. Please install as an Extension to function.'
+        );
       } else {
-          setApiError(`Error: ${error.message || 'Failed to load data'}`);
+        setApiError(`Error: ${error.message || 'Failed to load data'}`);
       }
     } finally {
       setLoading(false);
@@ -53,36 +53,36 @@ const Dashboard: React.FC<DashboardProps> = ({ apiKey, user, onLogout }) => {
 
   useEffect(() => {
     loadData();
-    
+
     let ws: WebSocket | null = null;
     try {
-        ws = service.createWebSocket(apiKey, (data: WebSocketMessage) => {
-          if (data.type === 'tickle') {
-            if (data.subtype === 'push') {
-                service.getPushes(apiKey).then(setPushes).catch(console.error);
-            } else if (data.subtype === 'device') {
-                service.getDevices(apiKey).then(setDevices).catch(console.error);
-            }
-          } else if (data.type === 'push' && data.push) {
-            const pushData = data.push;
-            
-            setWsPush(pushData);
+      ws = service.createWebSocket(apiKey, (data: WebSocketMessage) => {
+        if (data.type === 'tickle') {
+          if (data.subtype === 'push') {
+            service.getPushes(apiKey).then(setPushes).catch(console.error);
+          } else if (data.subtype === 'device') {
+            service.getDevices(apiKey).then(setDevices).catch(console.error);
+          }
+        } else if (data.type === 'push' && data.push) {
+          const pushData = data.push;
 
-            if (pushData.type === 'mirror') {
-               if (!isExtension && 'Notification' in window && Notification.permission === 'granted') {
-                 new Notification(pushData.title || 'New Notification', {
-                   body: pushData.body,
-                   icon: pushData.icon ? `data:image/png;base64,${pushData.icon}` : undefined
-                 });
-               }
+          setWsPush(pushData);
+
+          if (pushData.type === 'mirror') {
+            if (!isExtension && 'Notification' in window && Notification.permission === 'granted') {
+              new Notification(pushData.title || 'New Notification', {
+                body: pushData.body,
+                icon: pushData.icon ? `data:image/png;base64,${pushData.icon}` : undefined,
+              });
             }
           }
-        });
-        
-        ws.onopen = () => setWsConnected(true);
-        ws.onclose = () => setWsConnected(false);
+        }
+      });
+
+      ws.onopen = () => setWsConnected(true);
+      ws.onclose = () => setWsConnected(false);
     } catch (e) {
-        console.error('WS Setup failed', e);
+      console.error('WS Setup failed', e);
     }
 
     return () => {
@@ -92,25 +92,27 @@ const Dashboard: React.FC<DashboardProps> = ({ apiKey, user, onLogout }) => {
   }, [apiKey]);
 
   const requestNotificationPermission = () => {
-      if (!isExtension && 'Notification' in window && Notification.permission === 'default') {
-        Notification.requestPermission();
-      }
-  }
+    if (!isExtension && 'Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  };
 
   return (
     <div className="flex h-full bg-slate-50 overflow-hidden relative">
       {/* Error Banner */}
       {apiError && (
-          <div className="absolute top-0 left-0 right-0 z-50 bg-red-600 text-white px-4 py-2 text-xs flex items-center justify-between shadow-md">
-              <span className="flex items-center truncate pr-2">
-                  <AlertTriangle className="w-4 h-4 mr-2 flex-shrink-0" /> 
-                  {apiError}
-              </span>
-              <button onClick={() => setApiError(null)}><X className="w-4 h-4 flex-shrink-0" /></button>
-          </div>
+        <div className="absolute top-0 left-0 right-0 z-50 bg-red-600 text-white px-4 py-2 text-xs flex items-center justify-between shadow-md">
+          <span className="flex items-center truncate pr-2">
+            <AlertTriangle className="w-4 h-4 mr-2 shrink-0" />
+            {apiError}
+          </span>
+          <button title="Close error banner" onClick={() => setApiError(null)}>
+            <X className="w-4 h-4 shrink-0" />
+          </button>
+        </div>
       )}
 
-      <Sidebar 
+      <Sidebar
         user={user}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -125,10 +127,10 @@ const Dashboard: React.FC<DashboardProps> = ({ apiKey, user, onLogout }) => {
             <DeviceList devices={devices} />
           </div>
         )}
-        
+
         {activeTab === Tab.PUSHES && (
           <div className="h-full overflow-hidden">
-            <SendPush 
+            <SendPush
               apiKey={apiKey}
               devices={devices}
               pushes={pushes}
@@ -138,15 +140,10 @@ const Dashboard: React.FC<DashboardProps> = ({ apiKey, user, onLogout }) => {
             />
           </div>
         )}
-        
+
         {activeTab === Tab.SMS && (
           <div className="h-full overflow-hidden">
-            <SmsClient 
-              apiKey={apiKey}
-              user={user} 
-              devices={devices}
-              wsPush={wsPush}
-            />
+            <SmsClient apiKey={apiKey} user={user} devices={devices} wsPush={wsPush} />
           </div>
         )}
       </main>

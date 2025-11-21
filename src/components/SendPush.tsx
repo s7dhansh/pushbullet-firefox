@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Send, RefreshCw, Trash2, ExternalLink } from 'lucide-react';
 import { Device, Push } from '../types';
 import * as service from '../services/pushbulletService';
+import { getStorage, setStorage } from '../utils/storage';
 
 interface SendPushProps {
   apiKey: string;
@@ -12,7 +13,14 @@ interface SendPushProps {
   setLoading: (loading: boolean) => void;
 }
 
-const SendPush: React.FC<SendPushProps> = ({ apiKey, devices, pushes, loading, onRefresh, setLoading }) => {
+const SendPush: React.FC<SendPushProps> = ({
+  apiKey,
+  devices,
+  pushes,
+  loading,
+  onRefresh,
+  setLoading,
+}) => {
   const [message, setMessage] = useState('');
   const [selectedDevice, setSelectedDevice] = useState<string>('');
   const [sending, setSending] = useState(false);
@@ -30,7 +38,7 @@ const SendPush: React.FC<SendPushProps> = ({ apiKey, devices, pushes, loading, o
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!message.trim()) {
       setError('Please enter a message or URL');
       return;
@@ -52,16 +60,17 @@ const SendPush: React.FC<SendPushProps> = ({ apiKey, devices, pushes, loading, o
       }
 
       await service.sendPush(apiKey, pushData);
-      
+
       setSuccess(true);
       setMessage('');
-      
+
       setTimeout(() => {
         setSuccess(false);
         onRefresh();
       }, 1500);
-    } catch (err: any) {
-      setError(err.message || 'Failed to send push');
+    } catch (err: unknown) {
+      const e = err as Error;
+      setError(e.message || 'Failed to send push');
     } finally {
       setSending(false);
     }
@@ -72,12 +81,28 @@ const SendPush: React.FC<SendPushProps> = ({ apiKey, devices, pushes, loading, o
     try {
       await service.deletePush(apiKey, pushIden);
       onRefresh();
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Failed to delete push:', err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const pushableDevices = devices.filter(d => d.pushable);
+  const pushableDevices = devices.filter((d) => d.pushable);
+
+  useEffect(() => {
+    getStorage('pb_selected_device_push')
+      .then((stored) => {
+        if (!stored) return;
+        const exists = pushableDevices.find((d) => d.iden === stored);
+        if (exists) setSelectedDevice(stored);
+      })
+      .catch(() => {});
+  }, [devices, pushableDevices]);
+
+  useEffect(() => {
+    setStorage('pb_selected_device_push', selectedDevice || '').catch(() => {});
+  }, [selectedDevice]);
 
   return (
     <div className="flex flex-col h-full">
@@ -86,18 +111,20 @@ const SendPush: React.FC<SendPushProps> = ({ apiKey, devices, pushes, loading, o
         <form onSubmit={handleSend} className="space-y-3">
           <div className="flex gap-2">
             <select
+              title="Select device to send push"
               value={selectedDevice}
               onChange={(e) => setSelectedDevice(e.target.value)}
               className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
             >
               <option value="">All Devices</option>
-              {pushableDevices.map(device => (
+              {pushableDevices.map((device) => (
                 <option key={device.iden} value={device.iden}>
                   {device.nickname || device.model}
                 </option>
               ))}
             </select>
             <button
+              title="Refresh push history"
               type="button"
               onClick={onRefresh}
               disabled={loading}
@@ -165,9 +192,7 @@ const SendPush: React.FC<SendPushProps> = ({ apiKey, devices, pushes, loading, o
                       </h4>
                     )}
                     {push.body && (
-                      <p className="text-slate-600 text-sm mb-2 line-clamp-2">
-                        {push.body}
-                      </p>
+                      <p className="text-slate-600 text-sm mb-2 line-clamp-2">{push.body}</p>
                     )}
                     {push.url && (
                       <a
